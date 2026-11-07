@@ -14,6 +14,7 @@
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
+      padding-bottom: 24px;
     }
     h1 { color: #fff; text-shadow: 2px 2px 0 #2a7fb0; margin: 16px 0 4px; }
     p.hint { color: #1d4f6e; margin: 0 0 12px; text-align: center; padding: 0 16px; }
@@ -29,11 +30,51 @@
     #paul-body { animation: bob 1.2s ease-in-out infinite; }
     @keyframes bob { 50% { transform: translateY(-3px); } }
     #bubble { transition: opacity 0.3s; }
+
+    /* 下方的互動面板 */
+    .panel {
+      width: min(800px, calc(100vw - 32px));
+      margin-top: 12px;
+      background: #fffaf0;
+      border: 3px solid #c98b4f;
+      border-radius: 14px;
+      padding: 12px 16px 16px;
+      display: none;
+    }
+    .panel.show { display: block; }
+    .panel h2 { margin: 0 0 4px; font-size: 20px; color: #6b3e1a; }
+    .panel p { margin: 0 0 10px; color: #555; }
+    .tools {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+    }
+    .panel button {
+      font: inherit;
+      border: 2px solid #c98b4f;
+      background: #fff;
+      border-radius: 10px;
+      padding: 8px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .panel button:hover:not(:disabled) { background: #ffe9c7; }
+    .panel button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .tool-emoji { font-size: 22px; margin-right: 4px; }
+    .tool-cat { display: block; font-size: 12px; color: #888; }
+    .borrowed {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .big-btn { font-size: 18px !important; padding: 10px 18px !important; }
   </style>
 </head>
 <body>
   <h1>🏝️ 保羅的小島</h1>
-  <p class="hint">點擊島上任何地方，保羅就會走過去；也可以用鍵盤方向鍵移動。點保羅本人會跟你打招呼！</p>
+  <p class="hint">點擊島上任何地方讓保羅走過去，也可以用方向鍵。帶保羅走進<b>工作室</b>借工具，或到<b>家</b>裡吃巧克力！</p>
 
   <svg id="scene" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
     <!-- 海 -->
@@ -61,15 +102,32 @@
       <circle cx="6" cy="9" r="5" fill="#6b3e1a" />
     </g>
 
-    <!-- 小屋 -->
-    <g transform="translate(540 190)">
+    <!-- 家 -->
+    <g id="house" transform="translate(540 190)">
       <rect x="-40" y="0" width="80" height="55" fill="#c98b4f" />
       <polygon points="-50,0 0,-40 50,0" fill="#a0522d" />
       <rect x="-10" y="20" width="20" height="35" fill="#6b3e1a" />
+      <rect x="-32" y="12" width="16" height="14" fill="#bfe6fa" stroke="#6b3e1a" stroke-width="2" />
+      <text x="0" y="-48" text-anchor="middle" font-size="14" font-weight="bold" fill="#1d3b2a">家</text>
+      <!-- 門口小桌上的巧克力 -->
+      <rect x="48" y="38" width="30" height="5" fill="#8b5a2b" />
+      <rect x="52" y="43" width="4" height="12" fill="#8b5a2b" />
+      <rect x="70" y="43" width="4" height="12" fill="#8b5a2b" />
+      <text x="63" y="36" text-anchor="middle" font-size="16">🍫</text>
+    </g>
+
+    <!-- 工作室 -->
+    <g id="workshop" transform="translate(300 300)">
+      <rect x="-55" y="0" width="110" height="55" fill="#8fa3b8" />
+      <polygon points="-62,0 -62,-14 62,-30 62,0" fill="#4d6378" />
+      <rect x="-14" y="18" width="28" height="37" fill="#3a4a5a" />
+      <rect x="-45" y="12" width="22" height="16" fill="#bfe6fa" stroke="#3a4a5a" stroke-width="2" />
+      <rect x="23" y="12" width="22" height="16" fill="#bfe6fa" stroke="#3a4a5a" stroke-width="2" />
+      <text x="0" y="-36" text-anchor="middle" font-size="14" font-weight="bold" fill="#1d3b2a">工作室 🔧</text>
     </g>
 
     <!-- 保羅 -->
-    <g id="paul" transform="translate(400 300)">
+    <g id="paul" transform="translate(420 280)">
       <ellipse cx="0" cy="4" rx="18" ry="5" fill="rgba(0,0,0,0.2)" />
       <g id="paul-body">
         <!-- 腳 -->
@@ -86,6 +144,8 @@
         <circle cx="-5" cy="-62" r="2" fill="#222" />
         <circle cx="5" cy="-62" r="2" fill="#222" />
         <path d="M-5 -55 q5 4 10 0" stroke="#222" stroke-width="1.5" fill="none" />
+        <!-- 手上拿的東西 -->
+        <text id="held" x="26" y="-18" font-size="22" text-anchor="middle"></text>
       </g>
       <!-- 名牌 -->
       <text x="0" y="22" text-anchor="middle" font-size="14" font-weight="bold" fill="#1d3b2a">保羅</text>
@@ -97,20 +157,84 @@
     </g>
   </svg>
 
+  <!-- 工作室面板 -->
+  <div class="panel" id="workshop-panel">
+    <h2>🔧 保羅的工作室</h2>
+    <p>想借什麼工具？點一下，保羅就會拿給你。一次借一樣，用完記得還喔！</p>
+    <div class="tools" id="tool-list"></div>
+    <div class="borrowed" id="borrowed" hidden>
+      <span id="borrowed-text"></span>
+      <button id="return-btn">↩️ 還給保羅</button>
+    </div>
+  </div>
+
+  <!-- 家的面板 -->
+  <div class="panel" id="house-panel">
+    <h2>🏠 保羅的家</h2>
+    <p>門口桌上放著一盒巧克力，保羅說可以隨便吃！</p>
+    <button class="big-btn" id="choco-btn">🍫 吃一塊巧克力</button>
+    <p id="choco-count" style="margin-top:10px;"></p>
+  </div>
+
   <script>
     const scene = document.getElementById('scene');
     const paul = document.getElementById('paul');
     const bubble = document.getElementById('bubble');
     const bubbleText = document.getElementById('bubble-text');
+    const held = document.getElementById('held');
 
     // 島上可以走的範圍（草地橢圓）
     const ISLAND = { cx: 400, cy: 260, rx: 235, ry: 120 };
-    let pos = { x: 400, y: 300 };
+
+    // 兩個可以「進去」的地方：門口位置 + 判定範圍
+    const PLACES = {
+      workshop: {
+        el: document.getElementById('workshop'),
+        panel: document.getElementById('workshop-panel'),
+        door: { x: 300, y: 362 },
+        area: { x1: 235, x2: 365, y1: 270, y2: 375 },
+        enterMsg: '歡迎來我的工作室！',
+      },
+      house: {
+        el: document.getElementById('house'),
+        panel: document.getElementById('house-panel'),
+        door: { x: 540, y: 262 },
+        area: { x1: 490, x2: 625, y1: 150, y2: 280 },
+        enterMsg: '我家有巧克力喔 🍫',
+      },
+    };
+
+    // 10 種可以借的工具
+    const TOOLS = [
+      { emoji: '🪚', name: '手鋸', cat: '木工' },
+      { emoji: '🔨', name: '鐵鎚', cat: '木工' },
+      { emoji: '📐', name: '角尺', cat: '木工' },
+      { emoji: '🪛', name: '螺絲起子', cat: '電工' },
+      { emoji: '📟', name: '三用電表', cat: '電工' },
+      { emoji: '🔌', name: '延長線', cat: '電工' },
+      { emoji: '🔥', name: '烙鐵', cat: '電路板焊接' },
+      { emoji: '🔍', name: '放大鏡', cat: '電路板焊接' },
+      { emoji: '🖨️', name: '3D 印表機', cat: '數位製造' },
+      { emoji: '🔆', name: '雷射切割機', cat: '數位製造' },
+    ];
+
+    let pos = { x: 420, y: 280 };
+    let currentPlace = null;
+    let borrowedTool = null;
+    let chocolates = 0;
 
     function onIsland(x, y) {
       const dx = (x - ISLAND.cx) / ISLAND.rx;
       const dy = (y - ISLAND.cy) / ISLAND.ry;
       return dx * dx + dy * dy <= 1;
+    }
+
+    function placeAt(x, y) {
+      for (const [key, p] of Object.entries(PLACES)) {
+        const a = p.area;
+        if (x >= a.x1 && x <= a.x2 && y >= a.y1 && y <= a.y2) return key;
+      }
+      return null;
     }
 
     function moveTo(x, y) {
@@ -120,6 +244,18 @@
       }
       pos = { x, y };
       paul.setAttribute('transform', `translate(${x} ${y})`);
+      updatePlace();
+    }
+
+    // 根據保羅所在位置，顯示對應的面板
+    function updatePlace() {
+      const place = placeAt(pos.x, pos.y);
+      if (place === currentPlace) return;
+      currentPlace = place;
+      for (const [key, p] of Object.entries(PLACES)) {
+        p.panel.classList.toggle('show', key === place);
+      }
+      if (place) say(PLACES[place].enterMsg);
     }
 
     let bubbleTimer;
@@ -131,10 +267,69 @@
       rect.setAttribute('x', -w / 2);
       bubble.setAttribute('opacity', 1);
       clearTimeout(bubbleTimer);
-      bubbleTimer = setTimeout(() => bubble.setAttribute('opacity', 0), 2000);
+      bubbleTimer = setTimeout(() => bubble.setAttribute('opacity', 0), 2200);
     }
 
-    // 把滑鼠點擊位置轉成 SVG 座標
+    // ---------- 工作室：借工具 ----------
+    const toolList = document.getElementById('tool-list');
+    const borrowedBox = document.getElementById('borrowed');
+    const borrowedText = document.getElementById('borrowed-text');
+
+    TOOLS.forEach((tool) => {
+      const btn = document.createElement('button');
+      btn.innerHTML = `<span class="tool-emoji">${tool.emoji}</span>${tool.name}<span class="tool-cat">${tool.cat}</span>`;
+      btn.addEventListener('click', () => borrow(tool));
+      toolList.appendChild(btn);
+    });
+
+    function borrow(tool) {
+      if (borrowedTool) {
+        say(`先把${borrowedTool.name}還我喔！`);
+        return;
+      }
+      borrowedTool = tool;
+      held.textContent = tool.emoji;
+      say(`來，${tool.name}借你！`);
+      renderTools();
+    }
+
+    function returnTool() {
+      if (!borrowedTool) return;
+      say(`謝謝你還我${borrowedTool.name}！`);
+      borrowedTool = null;
+      held.textContent = '';
+      renderTools();
+    }
+
+    function renderTools() {
+      toolList.querySelectorAll('button').forEach((b) => (b.disabled = !!borrowedTool));
+      borrowedBox.hidden = !borrowedTool;
+      if (borrowedTool) {
+        borrowedText.textContent = `你借了：${borrowedTool.emoji} ${borrowedTool.name}（${borrowedTool.cat}）`;
+      }
+    }
+
+    document.getElementById('return-btn').addEventListener('click', returnTool);
+
+    // ---------- 家：吃巧克力 ----------
+    const chocoCount = document.getElementById('choco-count');
+    document.getElementById('choco-btn').addEventListener('click', () => {
+      chocolates++;
+      held.textContent = '🍫';
+      setTimeout(() => {
+        // 吃完後，手上恢復原本拿的工具
+        held.textContent = borrowedTool ? borrowedTool.emoji : '';
+      }, 1200);
+      if (chocolates >= 5) {
+        say('吃太多會蛀牙喔 🦷');
+      } else {
+        const msgs = ['好好吃！😋', '甜甜的～', '再來一塊！', '巧克力最棒了！'];
+        say(msgs[Math.floor(Math.random() * msgs.length)]);
+      }
+      chocoCount.textContent = `你已經吃了 ${chocolates} 塊巧克力。`;
+    });
+
+    // ---------- 點擊與鍵盤 ----------
     function toSvgPoint(evt) {
       const pt = scene.createSVGPoint();
       pt.x = evt.clientX;
@@ -148,8 +343,15 @@
         say(greetings[Math.floor(Math.random() * greetings.length)]);
         return;
       }
-      const p = toSvgPoint(evt);
-      moveTo(p.x, p.y);
+      // 點到建築物本身 → 走到門口
+      for (const p of Object.values(PLACES)) {
+        if (p.el.contains(evt.target)) {
+          moveTo(p.door.x, p.door.y);
+          return;
+        }
+      }
+      const pt = toSvgPoint(evt);
+      moveTo(pt.x, pt.y);
     });
 
     document.addEventListener('keydown', (evt) => {
